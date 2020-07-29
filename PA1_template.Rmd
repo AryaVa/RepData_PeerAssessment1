@@ -3,23 +3,72 @@ title: "Reproducible Research: Peer Assessment 1"
 output: 
   html_document:
     keep_md: true
+Author: AryaVa
+Date: 29/7/2020
 ---
 
 
 ## Loading and preprocessing the data
-
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+activitydata<- read.csv("activity.csv", header=TRUE)
+head(activitydata)
+```
 
 
 ## What is mean total number of steps taken per day?
-
+```{r}
+knitr::opts_chunk$set(echo=TRUE)
+library(magrittr)
+library(dplyr)
+actbydate<-activitydata%>%select(date,steps)%>%group_by(date)%>%summarize(totsteps=sum(steps))%>%na.omit()
+hist(actbydate$totsteps, xlab="Total daily steps", ylab="Frequency", main="Histogram of total steps daily", breaks=20, col="red")
+mean(actbydate$totsteps)
+median(actbydate$totsteps)
+```
 
 
 ## What is the average daily activity pattern?
-
+```{r}
+library(ggplot2)
+intervaldata<-activitydata%>%select(interval,steps)%>%na.omit()%>%group_by(interval)%>%summarize(totsteps=mean(steps))
+ggplot(intervaldata, aes(x=interval, y=totsteps))+geom_line()
+intervaldata[which(intervaldata$totsteps== max(intervaldata$totsteps)),]
+```
 
 
 ## Imputing missing values
-
+```{r}
+missingvals<- is.na(activitydata[,1])
+meanrep<- function(x){replace(x, is.na(x), mean(x, na.rm=TRUE))}
+meandata<- activitydata%>%group_by(interval)%>%mutate(steps=meanrep(steps))
+head(meandata)
+activitynew<- aggregate(meandata$steps, by=list(meandata$date), sum)
+names(activitynew)[1]="date"
+names(activitynew)[2]="totalsteps"
+head(activitynew, 15)
+summary(activitynew)
+hist(activitynew$totalsteps, xlab="steps", ylab="frequency", main="Total daily steps", breaks=20, col="green")
+oldmean<- mean(actbydate$totsteps, na.rm=TRUE)
+newmean<- mean(activitynew$totalsteps)
+oldmean
+newmean
+oldmedian<- median(actbydate$totsteps, na.rm=TRUE)
+newmedian<- median(activitynew$totalsteps)
+oldmedian
+newmedian
+```
+## No change in mean but the median has moved by a bit, that is the value has increased a little.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+meandata$date<- as.Date(meandata$date)
+meandata$weekday<- weekdays(meandata$date)
+meandata$weekend<- ifelse(meandata$weekday=="Saturday"|meandata$weekday=="Sunday", "Weekend", "Weekday")
+library(ggplot2)
+meandayend<- aggregate(meandata$steps, by=list(meandata$weekend, meandata$interval), na.omit(mean))
+names(meandayend)<- c("weekend", "interval", "steps")
+ggplot(meandayend, aes(x=interval, y=steps, color=weekend))+geom_line() +facet_grid(weekend~.)+ xlab("Interval")+ ylab("Mean of steps")+ ggtitle("Comparison of Average number of steps in each Interval")
+```
+
